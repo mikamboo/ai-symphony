@@ -9,6 +9,8 @@ loader, config layer, orchestrator state machine, workspace manager, tracker ada
 structured logging. The OPTIONAL HTTP status server, provider-native agent tools, and the
 Appendix A SSH worker extension are out of scope for this pass.
 
+![Symphony architecture: WORKFLOW.md feeds a Workflow Loader and Config Layer into a central Orchestrator, which polls a pluggable Tracker Adapter, drives a pluggable Agent Runner that spawns a coding-agent subprocess inside a sandboxed per-issue workspace managed by the Workspace Manager, and emits structured logs.](./docs/architecture.svg)
+
 ## Status at a glance
 
 | Area                                             | Status                                                          |
