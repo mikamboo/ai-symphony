@@ -24,6 +24,8 @@ Appendix A SSH worker extension are out of scope for this pass.
 | Mock tracker adapter (tests / local smoke runs)   | Implemented (`src/tracker/mock.ts`)                               |
 | Agent Runner interface                            | Implemented, decoupled from any one coding agent's wire protocol (`src/agent/runner.ts`) |
 | Reference `SubprocessAgentRunner`                 | Implemented against Symphony's own protocol, not the Codex app-server protocol — see [`docs/agent-runner-protocol.md`](./docs/agent-runner-protocol.md) |
+| `ClaudeCodeAgentRunner`                           | Implemented, drives the real `claude` CLI (`src/agent/claudeCodeRunner.ts`) — select via `agent_runner.kind: claude_code` |
+| Real OpenAI Codex app-server client                | **Not implemented** despite `codex.command`'s naming — see [`docs/agent-runner-protocol.md`](./docs/agent-runner-protocol.md) "Status" section |
 | Structured logging                                | Implemented (`src/logging/logger.ts`)                             |
 | CLI                                                | Implemented (`src/cli.ts`)                                        |
 | HTTP status server, provider-native tracker tools, session persistence across restarts | Not implemented (SPEC.md 18.2 RECOMMENDED extensions) |
@@ -41,6 +43,10 @@ pnpm run dev -- examples/mock/WORKFLOW.md
 # Against a real Linear workspace:
 export LINEAR_API_KEY=lin_api_...
 pnpm run dev -- examples/linear/WORKFLOW.md
+
+# Select the real Claude Code CLI as the coding agent instead of the reference protocol
+# (requires `claude` on PATH; still uses the mock tracker, so nothing dispatches by default):
+pnpm run dev -- examples/claude-code/WORKFLOW.md
 ```
 
 This project uses [pnpm](https://pnpm.io) (pinned via the `packageManager` field in
@@ -108,16 +114,23 @@ normalization, pagination, and error-category mapping (SPEC.md Section 11).
 
 Implement `AgentRunner` (`src/agent/runner.ts`) against your coding agent's native protocol. See
 [`docs/agent-runner-protocol.md`](./docs/agent-runner-protocol.md) for why this is a deliberately
-decoupled interface rather than a hard-coded Codex app-server client, and for the reference
-protocol `SubprocessAgentRunner` speaks by default.
+decoupled interface rather than a hard-coded Codex app-server client, which agents actually work
+today (short version: `SubprocessAgentRunner`'s own made-up protocol, and now Claude Code — *not*
+the real Codex app-server, despite `codex.command`'s naming), and the reference protocol
+`SubprocessAgentRunner` speaks by default. Register a new runner's selection in
+`src/agent/registry.ts` alongside `ClaudeCodeAgentRunner` if you want it chosen via
+`agent_runner.kind` in `WORKFLOW.md` the same way.
 
 ## Security / trust posture (SPEC.md Section 15)
 
-- **Trust boundary**: this implementation targets a **trusted, high-approval environment**. The
-  reference `SubprocessAgentRunner` does not implement an operator-approval channel; a
-  `turn.input_required` signal is treated as a failed turn (retried with backoff), not surfaced
-  for human approval. Do not point it at untrusted issue trackers or repositories without adding
-  your own approval/sandboxing layer first (SPEC.md 15.5).
+- **Trust boundary**: this implementation targets a **trusted, high-approval environment**. Every
+  shipped `AgentRunner` reflects that: `SubprocessAgentRunner` has no operator-approval channel at
+  all (`turn.input_required` is treated as a failed turn, retried with backoff); `ClaudeCodeAgentRunner`
+  runs `claude` with `--permission-mode acceptEdits` by default (`bypassPermissions` is refused by
+  the CLI itself when running as root — confirmed interactively, see
+  `src/agent/claudeCodeRunner.ts`), which auto-approves file edits and tool calls with no human in
+  the loop. Do not point either at untrusted issue trackers or repositories without adding your
+  own approval/sandboxing layer first (SPEC.md 15.5).
 - **Filesystem safety**: workspace paths are sanitized (SPEC.md 9.2/15.2 invariant 3) and asserted
   to stay inside the configured `workspace.root` (invariant 2) before every hook run and agent
   launch (invariant 1). See `assertWithinRoot` in `src/workspace/manager.ts`.
@@ -144,10 +157,10 @@ pnpm run build       # emit dist/
 | 17.2 Workspace Manager and Safety               | `src/workspace/manager.test.ts`                            |
 | 17.3 Issue Tracker Adapter                      | `src/tracker/mock.test.ts` (contract-level; see `docs/adapters/linear.md` for the Linear-specific profile) |
 | 17.4 Orchestrator Dispatch, Reconciliation, Retry | `src/orchestrator/selection.test.ts`, `src/orchestrator/orchestrator.test.ts` |
-| 17.5 Coding-Agent App-Server Client              | Not applicable as specified — this implementation speaks its own documented protocol (see `docs/agent-runner-protocol.md`) rather than the Codex app-server protocol; `MockAgentRunner` is used to unit test orchestrator behavior instead of testing `SubprocessAgentRunner`'s wire format directly. |
+| 17.5 Coding-Agent App-Server Client              | Not applicable to the real Codex app-server protocol, which isn't implemented (see `docs/agent-runner-protocol.md` "Status"). `MockAgentRunner` unit-tests orchestrator behavior. `ClaudeCodeAgentRunner`'s own protocol against the real `claude` CLI is covered by `src/agent/claudeCodeRunner.test.ts` (fake-stub, deterministic) and `claudeCodeRunner.live.test.ts` (real CLI, opt-in — SPEC.md 17.8 style). |
 | 17.6 Observability                              | `src/logging/logger.test.ts`                                |
 | 17.7 CLI and Host Lifecycle                     | `src/cli.test.ts`                                            |
-| 17.8 Real Integration Profile                   | Not automated in this repo; see `docs/adapters/linear.md`.  |
+| 17.8 Real Integration Profile                   | `src/tracker/linear.schema.test.ts`, `src/agent/claudeCodeRunner.live.test.ts` — both opt-in via env var, both need no stored credentials for the specific thing they check (schema validity / CLI wiring), not full end-to-end dispatch. |
 
 Known gap: SPEC.md 8.4's "slot exhaustion requeues retries with explicit error reason" path
 (`onRetryTimer` finding no available slots) is implemented in

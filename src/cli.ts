@@ -3,7 +3,7 @@ import path from "node:path";
 import { loadWorkflowFile, resolveWorkflowPath } from "./workflow/loader.js";
 import { buildServiceConfig } from "./config/resolve.js";
 import { buildTrackerAdapter } from "./tracker/registry.js";
-import { SubprocessAgentRunner } from "./agent/subprocessRunner.js";
+import { buildAgentRunner, parseAgentRunnerKind } from "./agent/registry.js";
 import { Orchestrator } from "./orchestrator/orchestrator.js";
 import { createLogger } from "./logging/logger.js";
 
@@ -48,7 +48,9 @@ async function main(): Promise<void> {
   }
   const tracker = trackerResult.value;
 
-  const agentRunner = new SubprocessAgentRunner({ secretEnvNames: tracker.secretEnvironmentNames() });
+  const agentRunnerKind = parseAgentRunnerKind(workflow.config);
+  const agentRunner = buildAgentRunner(agentRunnerKind, { secretEnvNames: tracker.secretEnvironmentNames() });
+  logger.info("startup.agent_runner_selected", { kind: agentRunnerKind });
 
   const orchestrator = new Orchestrator({
     workflowPath,

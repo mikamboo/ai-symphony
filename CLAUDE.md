@@ -19,11 +19,25 @@ Full status table, directory map, dev/security notes: `README.md`.
   `AgentRunner` interface (`src/agent/runner.ts`). `SubprocessAgentRunner` speaks Symphony's own
   reference JSON protocol (`docs/agent-runner-protocol.md`), not a Codex client — don't "fix" it
   to match Codex's wire format; that was an explicit choice.
+- **Real Codex app-server support does not exist**, despite `codex.command` defaulting to
+  `"codex app-server"`. Nobody has implemented a client for Codex's actual protocol — this is not
+  a gap someone forgot, it's the same scope decision as the line above. Don't assume it works.
+- **`ClaudeCodeAgentRunner`** (`src/agent/claudeCodeRunner.ts`) drives the real `claude` CLI —
+  select it via `agent_runner.kind: claude_code` (a Symphony-CLI-only `WORKFLOW.md` extension
+  field, `src/agent/registry.ts`, not part of SPEC.md's schema). Its class-level doc comment lists
+  exactly what was verified by direct invocation (flags, event shapes, the `acceptEdits`-not-
+  `bypassPermissions`-as-root finding) vs. assumed — read that before changing it, and re-verify
+  against the installed `claude` version rather than editing from memory if something looks off
+  (see `docs/adapters/linear.md`'s "Real integration profile" for why that matters: a
+  never-checked-against-the-real-API GraphQL argument shipped once already and broke every Linear
+  request).
 - **Tracker adapter shipped**: Linear only (`src/tracker/linear.ts`, read-only), plus an in-memory
   mock for tests.
-- **Trust posture**: high-trust environment assumed. No operator-approval channel exists;
-  `turn.input_required` is treated as a failed turn. Adding an approval flow changes the
-  documented security posture — discuss first.
+- **Trust posture**: high-trust environment assumed for every shipped runner. No operator-approval
+  channel exists anywhere; `SubprocessAgentRunner` fails `turn.input_required` outright,
+  `ClaudeCodeAgentRunner` runs with `--permission-mode acceptEdits` (auto-approves file edits and
+  tool calls, no human in the loop). Adding an approval flow changes the documented security
+  posture — discuss first.
 
 ## The one architecture rule to protect
 
