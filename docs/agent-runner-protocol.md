@@ -1,5 +1,7 @@
 # Agent Runner Protocol
 
+![Agent Runner architecture: SubprocessAgentRunner and ClaudeCodeAgentRunner both implement AgentRunner, but SubprocessAgentRunner keeps one process alive for every turn while ClaudeCodeAgentRunner spawns a fresh claude process per turn, joined by --resume.](./agent-runner-architecture.svg)
+
 SPEC.md Section 10 is written specifically against the OpenAI Codex app-server protocol. This
 implementation deliberately decouples Symphony's core orchestration logic (Section 16) from any
 one coding agent's wire protocol via the `AgentRunner` interface (`src/agent/runner.ts`):
