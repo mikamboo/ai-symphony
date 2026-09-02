@@ -31,22 +31,23 @@ Appendix A SSH worker extension are out of scope for this pass.
 ## Quick start
 
 ```bash
-npm install
-npm run build
+pnpm install
+pnpm run build
 
 # Smoke-test the daemon lifecycle with the in-memory mock tracker (no real issues dispatch,
 # but this exercises startup, polling, dynamic reload, and shutdown end-to-end):
-npm run dev -- examples/mock/WORKFLOW.md
+pnpm run dev -- examples/mock/WORKFLOW.md
 
 # Against a real Linear workspace:
 export LINEAR_API_KEY=lin_api_...
-npm run dev -- examples/linear/WORKFLOW.md
+pnpm run dev -- examples/linear/WORKFLOW.md
 ```
 
-`npm run dev` runs the CLI directly against TypeScript source via `tsx`; `npm start` runs the
-built `dist/cli.js`. The CLI accepts a positional `path-to-WORKFLOW.md` argument (or `--workflow
-<path>` / `-w <path>`) and defaults to `./WORKFLOW.md` in the current working directory (SPEC.md
-17.7).
+This project uses [pnpm](https://pnpm.io) (pinned via the `packageManager` field in
+`package.json`; run `corepack enable` if your `pnpm` doesn't match). `pnpm run dev` runs the CLI
+directly against TypeScript source via `tsx`; `pnpm start` runs the built `dist/cli.js`. The CLI
+accepts a positional `path-to-WORKFLOW.md` argument (or `--workflow <path>` / `-w <path>`) and
+defaults to `./WORKFLOW.md` in the current working directory (SPEC.md 17.7).
 
 Stop the service with `Ctrl-C` (`SIGINT`) or `SIGTERM`; it drains in-flight workers and exits 0.
 
@@ -127,9 +128,9 @@ protocol `SubprocessAgentRunner` speaks by default.
 ## Development
 
 ```bash
-npm run typecheck   # tsc --noEmit
-npm test            # vitest run — unit + integration tests, see Section 17 mapping below
-npm run build        # emit dist/
+pnpm run typecheck   # tsc --noEmit
+pnpm test            # vitest run — unit + integration tests, see Section 17 mapping below
+pnpm run build       # emit dist/
 ```
 
 ### Test coverage vs. SPEC.md Section 17 (Core Conformance)

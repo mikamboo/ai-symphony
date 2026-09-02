@@ -4,6 +4,7 @@
   "description": "Symphony: an orchestration service that continuously reads work from a configured issue tracker and runs coding agent sessions per issue, per SPEC.md.",
   "type": "module",
   "license": "MIT",
+  "packageManager": "pnpm@10.33.0",
   "bin": {
     "symphony": "./dist/cli.js"
   },
