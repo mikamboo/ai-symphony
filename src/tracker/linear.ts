@@ -97,13 +97,37 @@ const ISSUE_FIELDS = `
   url
   assignee { id }
   labels { nodes { name } }
-  inverseRelations(filter: { type: { eq: "blocks" } }) {
+  inverseRelations {
     nodes { type relatedIssue { id identifier state { name } } }
   }
   team { id key }
   createdAt
   updatedAt
 `;
+
+/**
+ * Exported for testing (see `linear.schema.test.ts`): these are the exact GraphQL documents sent
+ * to Linear. Kept as module-level constants rather than inline strings so a schema-validation
+ * test can send them verbatim without scraping source text.
+ */
+export const LINEAR_SCOPED_ISSUES_QUERY = `
+  query ScopedIssues($first: Int!, $after: String, $filter: IssueFilter) {
+    issues(first: $first, after: $after, filter: $filter) {
+      nodes { ${ISSUE_FIELDS} }
+      pageInfo { hasNextPage endCursor }
+    }
+  }
+`;
+
+export function linearIssuesByIdsQuery(count: number): string {
+  return `
+    query IssuesByIds($ids: [ID!]!) {
+      issues(filter: { id: { in: $ids } }, first: ${count}) {
+        nodes { ${ISSUE_FIELDS} }
+      }
+    }
+  `;
+}
 
 function toBlockedBy(node: LinearIssueNode): BlockerRef[] {
   if (!node.inverseRelations) return [];
@@ -218,20 +242,11 @@ export class LinearTrackerAdapter implements TrackerAdapter {
   }
 
   private async fetchAllScopedIssues(): Promise<Result<LinearIssueNode[], TrackerError>> {
-    const query = `
-      query ScopedIssues($first: Int!, $after: String, $filter: IssueFilter) {
-        issues(first: $first, after: $after, filter: $filter) {
-          nodes { ${ISSUE_FIELDS} }
-          pageInfo { hasNextPage endCursor }
-        }
-      }
-    `;
-
     const all: LinearIssueNode[] = [];
     let after: string | undefined;
     for (let page = 0; page < MAX_PAGES; page++) {
       const result = await this.graphql<{ issues: { nodes: LinearIssueNode[]; pageInfo: { hasNextPage: boolean; endCursor: string | null } } }>(
-        query,
+        LINEAR_SCOPED_ISSUES_QUERY,
         { first: this.providerConfig.pageSize, after, filter: this.buildFilter() }
       );
       if (!result.ok) return result;
@@ -270,15 +285,7 @@ export class LinearTrackerAdapter implements TrackerAdapter {
   async fetchIssuesByIds(issueIds: string[]): Promise<Result<Issue[], TrackerError>> {
     if (issueIds.length === 0) return ok([]);
 
-    const query = `
-      query IssuesByIds($ids: [ID!]!) {
-        issues(filter: { id: { in: $ids } }, first: ${issueIds.length}) {
-          nodes { ${ISSUE_FIELDS} }
-        }
-      }
-    `;
-
-    const result = await this.graphql<{ issues: { nodes: LinearIssueNode[] } }>(query, { ids: issueIds });
+    const result = await this.graphql<{ issues: { nodes: LinearIssueNode[] } }>(linearIssuesByIdsQuery(issueIds.length), { ids: issueIds });
     if (!result.ok) return result;
 
     const issues: Issue[] = [];

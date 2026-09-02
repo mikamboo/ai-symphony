@@ -67,9 +67,11 @@ API key in the coding-agent's `cwd` or environment; it is only used host-side fo
 - `priority`: Linear's own priority scale (`0` = no priority, `1` = urgent ... `4` = low) already
   matches SPEC.md's "lower number = higher priority" convention. `0` normalizes to `null`.
 - `labels`: lowercased, trimmed, deduplicated.
-- `blocked_by`: best-effort, derived from `inverseRelations(filter: { type: { eq: "blocks" } })` —
-  i.e. issues that block *this* issue. Not a complete blocker graph; only directly attached
-  relations of type `blocks`.
+- `blocked_by`: best-effort, derived from `inverseRelations` (Linear's `Issue.inverseRelations`
+  connection field does not accept a server-side `filter` argument, so all relation types are
+  fetched and narrowed client-side to `type === "blocks"` — i.e. issues that block *this* issue).
+  Not a complete blocker graph; only directly attached relations of type `blocks`, and only the
+  first page returned by the connection (no pagination is applied here).
 - `dispatchable`: always `true` for issues returned within the configured team/project scope. This
   adapter does not implement assignment- or board-based routing beyond scope selection; narrow
   eligibility with `tracker.required_labels` and/or `tracker.active_states` instead.
@@ -99,5 +101,25 @@ through whatever tools it is separately given, outside Symphony's core scheduler
 
 To run a smoke test against a real Linear workspace, set `LINEAR_API_KEY` (or `tracker.provider.api_key`)
 to a personal API key scoped to a disposable test team, and point `team_key`/`team_id` at that team.
-This adapter has no automated Real Integration Profile test in this repository yet; see
-`src/tracker/linear.ts` for the GraphQL queries it issues if you want to write one.
+
+**Schema validation** (`src/tracker/linear.schema.test.ts`, opt-in, no API key needed): sends the
+adapter's exact GraphQL queries to the real `api.linear.app/graphql` endpoint with a deliberately
+invalid token and asserts the response is a plain auth error rather than
+`GRAPHQL_VALIDATION_FAILED`. GraphQL schema validation happens before auth is checked, so this
+catches query/field/argument typos against Linear's actual schema without needing real
+credentials — run it with:
+
+```bash
+SYMPHONY_TEST_LIVE_LINEAR_SCHEMA=1 pnpm vitest run src/tracker/linear.schema.test.ts
+```
+
+This exists because `Issue.inverseRelations(filter: ...)` shipped with an argument that doesn't
+exist on Linear's real schema (it was written from memory, never checked against the live API) and
+caused every request — both `fetch_issues_by_states` and `fetch_issues_by_ids` — to fail with
+`HTTP 400`. Fixed by dropping the invalid `filter` argument; the client already narrows
+`inverseRelations` to `type === "blocks"` itself. If you add or change a query field, run this
+test (or introspect manually — `{ __type(name: "TypeName") { inputFields { name } } }` against the
+same endpoint, no auth required) before assuming it's correct.
+
+There is no automated **behavioral** Real Integration Profile test (one that dispatches a real
+issue end-to-end) in this repository yet; see `src/tracker/linear.ts` if you want to write one.
