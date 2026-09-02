@@ -49,6 +49,9 @@ directly against TypeScript source via `tsx`; `pnpm start` runs the built `dist/
 accepts a positional `path-to-WORKFLOW.md` argument (or `--workflow <path>` / `-w <path>`) and
 defaults to `./WORKFLOW.md` in the current working directory (SPEC.md 17.7).
 
+See [`examples/README.md`](./examples/README.md) for what each example actually demonstrates,
+prerequisites, and expected output.
+
 Stop the service with `Ctrl-C` (`SIGINT`) or `SIGTERM`; it drains in-flight workers and exits 0.
 
 ## Architecture
