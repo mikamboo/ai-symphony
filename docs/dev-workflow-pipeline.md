@@ -38,8 +38,8 @@ provisions.
 | State | Stage that dispatches on it | `required_labels` | On success | On failure |
 |---|---|---|---|---|
 | `Backlog` | PM | none | Refine description + acceptance criteria; create Linear **sub-issues** per implementation unit if the ticket is multi-part. Comment the plan. → move to `Design` | Leave in `Backlog`, comment what's missing, worker exits normally (re-polled next tick — see "Retry vs. bounce" below) |
-| `Design` | Architect | none | Write the technical design as an issue comment (approach, files touched, risks). → move to `Development` | Leave in `Design`, comment the blocker |
-| `Development` | Dev | none | Implement, commit, push a branch, open a PR referencing the issue. Comment the PR link. → move to `Review` | Leave in `Development`, comment the blocker |
+| `Design` | Architect | none | Write the architecture design doc + ADR(s) as files in the shared workspace (not committed yet — see below). Comment a summary. → move to `Development` | Leave in `Design`, comment the blocker |
+| `Development` | Dev | none | Implement, then commit **the code together with Architect's design doc + ADR file(s)** in one branch/PR referencing the issue. Comment the PR link. → move to `Review` | Leave in `Development`, comment the blocker |
 | `Review` | QA | none | Review the PR diff (correctness, tests, style). **Pass**: approve + merge the PR, comment the outcome → move to `Done`. **Fail**: request changes on the PR with specific comments, mirror a short summary onto the issue → move back to `Development` | (failure *is* the bounce-to-Dev path above, not a separate case) |
 | `Done` | — | — | terminal | — |
 | `Blocked` | — | — | terminal until a human manually moves the issue out | — |
@@ -53,15 +53,50 @@ automation entirely (e.g. a human is handling it manually), an opt-out label lik
 checked as an *absence* in each stage's `required_labels`-equivalent would be the natural
 extension — not built now, not needed for the common path.
 
-## Design stage has no PR of its own
+## Architecture design + ADRs — written by Architect, committed by Dev
 
-Only `Development`→`Review` produces a PR. `Design`'s output is a plain issue comment, not a
-document reviewed via diff — there's nothing to diff yet at that point, and adding a second
-PR+merge cycle before code exists would reintroduce the "second review mechanism" problem this
-design deliberately avoided for the human gate. If design artifacts should themselves be versioned
-and reviewed as a PR (e.g. `docs/design/<identifier>.md` in the target repo, merged the same way
-code is), that's a one-line change to the `Design` row of the table above — flag it and this doc
-gets revised before any code is written, per the same "describe first" rule that produced it.
+Confirmed: design and ADRs are real, versioned artifacts, not just Linear comments — but they get
+**one** PR, not two. Architect writes files into the shared per-issue workspace during `Design`;
+Dev picks them up and commits them alongside the code change during `Development`, so the single
+PR that goes to `Review` contains design + ADR + implementation in one diff. This keeps "review on
+PR" as the pipeline's one review mechanism (per the goal above) instead of adding a second
+PR+merge cycle before code exists, which would have reintroduced the same "second review
+mechanism" problem cut for the human gate.
+
+Paths, in the **target repository** being developed (not this Symphony repo, and not the pipeline
+config below — these land wherever `hooks.after_create` checks the target repo out to, same as
+`examples/WORKFLOW.example.md`'s optional `git clone`):
+
+- `docs/architecture/<identifier>.md` — one doc per ticket: approach, files touched, risks,
+  alternatives considered. Free-form Markdown, not a fixed template.
+- `docs/adr/NNNN-<slug>.md` — one file per architecturally-significant decision the ticket makes
+  (not every ticket produces one). Sequential `NNNN` numbering across the whole repo, MADR-lite
+  sections: `Status` (Proposed/Accepted/Superseded), `Context`, `Decision`, `Consequences`. Because
+  numbering is repo-global, Architect's hook needs read access to the target repo's existing
+  `docs/adr/` at `Design` time to pick the next number — a small but real reason `Design`'s
+  `hooks.before_run` (or `after_create`) needs the same repo checkout Dev already does, not just a
+  bare workspace.
+- Both are ordinary files in Dev's own commit — no separate write-access or credential concern
+  beyond what Dev already has (it's already pushing a branch and opening a PR).
+
+## UI/UX design and artifacts
+
+Recommendation: don't force every ticket through a UI step, and don't reach for a real design tool
+(Figma etc.) — a coding agent can't drive one today, and most tickets in a backend-shaped pipeline
+like this won't need one. Two-tier approach instead:
+
+- **Default**: if a ticket touches user-facing surface, Architect adds a "UI/UX" section to the
+  same `docs/architecture/<identifier>.md` — screens/components touched, states, user flow as a
+  table or short prose. No new file, no new tooling, judgment call left to Architect's prompt
+  (skip the section entirely for backend-only tickets).
+- **When it's worth more than prose**: for a ticket where a visual actually clarifies the change,
+  Architect (or Dev, since it's just a file write) commits a self-contained static
+  `design/ui/<identifier>/mockup.html` — plain HTML/CSS, no build step, viewable straight from the
+  repo or the PR's file diff. This is well within what the coding agent can already do (it's a
+  file write, same as any other), unlike driving an actual design tool.
+- **Out of scope for the agent**: high-fidelity/Figma-grade visual design stays a human artifact,
+  linked from the issue or PR description when someone attaches one. The pipeline doesn't wait on
+  it and doesn't try to produce it — flagged here as a deliberate boundary, not an oversight.
 
 ## Bounce loop and the `Blocked` escape valve
 
@@ -153,13 +188,16 @@ validate the design.
 
 ## Open items before implementation
 
-1. Whether `Design` gets its own PR (see "Design stage has no PR of its own" above) — confirm or
-   revise before writing `architect/WORKFLOW.md`.
-2. Exact GitHub API calls in `scripts/symphony_stage_hook.py` (branch creation, PR open, PR
+1. ~~Whether `Design` gets its own PR~~ — resolved: no, single PR at `Development`, see above.
+2. `Design` now needs a target-repo checkout to read `docs/adr/` for numbering, not just a bare
+   workspace — confirm `hooks.after_create` (or `before_run`) on `architect/WORKFLOW.md` should
+   clone/checkout the same way `dev/WORKFLOW.md` does, rather than Architect writing files with no
+   repo context.
+3. Exact GitHub API calls in `scripts/symphony_stage_hook.py` (branch creation, PR open, PR
    review/merge, request-changes) need the same live-schema verification discipline already
    applied to every Linear GraphQL call in this repo (`docs/adapters/linear.md` "Real integration
    profile") before being trusted — propose-then-verify, not written from memory.
-3. `codex.model` plumbing in `ClaudeCodeAgentRunner` (needed for per-stage model selection above)
+4. `codex.model` plumbing in `ClaudeCodeAgentRunner` (needed for per-stage model selection above)
    is new runner code, not just pipeline config — small but real implementation work.
-4. Bounce cap default (proposed: 3) and whether `Backlog`/`Design` retries need their own cap —
+5. Bounce cap default (proposed: 3) and whether `Backlog`/`Design` retries need their own cap —
    confirm before hardcoding either.
