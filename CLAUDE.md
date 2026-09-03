@@ -14,6 +14,9 @@ provider-native tracker tools, session persistence across restarts, or Appendix 
 Full status table, directory map, dev/security notes: `README.md`. Detailed §18 conformance
 checklist, plans for unfinished items, and the deferred-decisions log: `docs/ROADMAP.md` — check
 it before proposing new work, so you don't re-propose something already deferred for a reason.
+Every `WORKFLOW.md` field, its default, and its actual (source-verified, not just SPEC.md-quoted)
+behavior: `docs/workflow-config.md` — read that instead of re-deriving field semantics from
+`src/config/resolve.ts` cold.
 
 ## Decisions already made (don't re-litigate without asking)
 

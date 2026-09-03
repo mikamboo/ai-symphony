@@ -2,7 +2,8 @@
 
 Three ready-to-run `WORKFLOW.md` files. Each is a complete runtime config for the Symphony CLI
 (`pnpm run dev -- <path>` from the repo root) — see the main [`README.md`](../README.md) for
-install/build steps first.
+install/build steps first, and [`docs/workflow-config.md`](../docs/workflow-config.md) for what
+every field below actually does, its default, and its failure mode.
 
 All three default to `agent_runner.kind: subprocess` (or omit it, same effect) except
 `claude-code/WORKFLOW.md`, which sets it explicitly. `agent_runner.kind` is a Symphony-CLI-only

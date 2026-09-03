@@ -89,8 +89,11 @@ the relevant interface, without touching orchestration logic.
 Runtime behavior is entirely driven by a repository-owned `WORKFLOW.md` (SPEC.md Section 5): YAML
 front matter for typed config, then a Markdown prompt template rendered per issue with strict
 variable/filter checking (unknown template variables/filters fail the render). See
-[`examples/linear/WORKFLOW.md`](./examples/linear/WORKFLOW.md) for a fully annotated example and
-[`SPEC.md` Section 5.3](./SPEC.md) / [Section 6.4](./SPEC.md) for the full field reference.
+[`docs/workflow-config.md`](./docs/workflow-config.md) for the exhaustive field-by-field reference
+(every key, type, default, and failure mode, as actually implemented — cross-checked against
+source, not just SPEC.md), [`examples/linear/WORKFLOW.md`](./examples/linear/WORKFLOW.md) for a
+fully annotated example, and [`SPEC.md` Section 5.3](./SPEC.md) / [Section 6.4](./SPEC.md) for the
+normative spec both of those implement.
 `WORKFLOW.md` is watched for changes and re-applied live without a restart (SPEC.md 6.2); invalid
 reloads are logged and the service keeps running on the last-known-good config.
 
