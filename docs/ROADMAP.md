@@ -100,6 +100,13 @@ considered?" from scratch.
 
 ## 6. Decision history (dated, most recent first)
 
+- **2026-09-03** — Built the PM/Architect/Dev/QA multi-agent SDLC pipeline
+  (`pipelines/dev-workflow/`, `docs/dev-workflow-pipeline.md`): four Symphony daemons relaying a
+  ticket through custom Linear workflow states (`Backlog → Design → Development → Review → Done`,
+  `Blocked` as the bounce-cap escape valve), no Linear-side human gate — the one review checkpoint
+  is the eventual PR (design + ADRs + code, one diff, opened by Dev, reviewed/merged by QA). Not
+  yet run against a real Linear workspace/GitHub repo; see the doc's "Status" and "What's actually
+  verified vs. still open" sections for exactly what has and hasn't been checked.
 - **2026-09-02** — Added `ClaudeCodeAgentRunner`, the first real (non-reference) `AgentRunner`
   implementation, verified against the live `claude` CLI. Added `agent_runner.kind` CLI-only
   selection extension. See `docs/agent-runner-protocol.md`.
