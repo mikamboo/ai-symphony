@@ -3,8 +3,11 @@
 `WORKFLOW.md` is the single file that drives a Symphony run: YAML front matter for typed config,
 then a Markdown prompt template rendered per issue. This is the exhaustive field-by-field
 reference; `SPEC.md` §5/§6 is the normative spec it implements, and
-[`examples/`](../examples/) has three complete, runnable files to copy from
-(see [`examples/README.md`](../examples/README.md) for what each one demonstrates).
+[`examples/`](../examples/) has runnable files to copy from — most directly
+[`examples/WORKFLOW.example.md`](../examples/WORKFLOW.example.md), a complete real
+Linear + real Claude Code template safe enough to run as-is (see
+[`examples/README.md`](../examples/README.md) for what it and the other examples each
+demonstrate).
 
 ## File location
 

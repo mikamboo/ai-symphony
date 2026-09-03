@@ -50,6 +50,10 @@ pnpm run dev -- examples/linear/WORKFLOW.md
 # Select the real Claude Code CLI as the coding agent instead of the reference protocol
 # (requires `claude` on PATH; still uses the mock tracker, so nothing dispatches by default):
 pnpm run dev -- examples/claude-code/WORKFLOW.md
+
+# The real thing: real Linear + real Claude Code, scoped to safely post one comment and stop
+# (copy examples/WORKFLOW.example.md and fill in team_key first — see examples/README.md):
+pnpm run dev -- examples/WORKFLOW.example.md
 ```
 
 This project uses [pnpm](https://pnpm.io) (pinned via the `packageManager` field in
