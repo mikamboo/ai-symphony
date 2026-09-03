@@ -1,9 +1,13 @@
-# Multi-agent SDLC pipeline (design doc — not implemented)
+# Multi-agent SDLC pipeline
 
-Status: **design only**. Nothing under `pipelines/` exists yet. This documents the process so it
-can be reviewed before any `WORKFLOW.md` or hook script gets written, per the "describe before
-coding" ask that started this doc. See `docs/ROADMAP.md` §5 for where this sits among other
-deferred decisions.
+Status: **implemented, not yet run against a real Linear workspace.** `pipelines/dev-workflow/`
+has all four `WORKFLOW.md` files and the shared hook script; `pipelines/dev-workflow/scripts/
+test_symphony_stage_hook.py` covers the hook's decision → Linear/GitHub-call branching (11 cases,
+network calls mocked at the wrapper level). What has **not** been exercised: a real run end to end
+against an actual Linear team + GitHub repo, and the GitHub REST call shapes in the hook (see that
+file's own "Verification status" note — this sandbox can't reach a real repo's API to check them
+the way the Linear GraphQL calls were checked against Linear's live schema). Treat a first real run
+as a supervised smoke test, the same posture as `examples/WORKFLOW.example.md`.
 
 ## Goal
 
@@ -136,12 +140,21 @@ Stages share a workspace (same `workspace.root` keyed by `issue.identifier`) acr
 relay, so file-based handoff needs no new transport — later stages can just read files earlier
 stages left behind, alongside the Linear comment trail:
 
-- `.symphony/pipeline_state.json` — bounce counter (above), machine-owned, not agent-owned.
-- Design's comment and Dev's own repo checkout are enough context for Dev and QA respectively;
-  no additional handoff file is required beyond what's already proposed unless a stage's prompt
-  turns out to need more structure than a comment provides (e.g. QA wanting a machine-readable
-  pass/fail from Dev's own self-check) — deferred until a concrete need shows up rather than
-  speculatively built now.
+- `.symphony/decision_<stage>.json` — **agent-owned, required, not optional.** `hooks.after_run`
+  runs unconditionally after every attempt — success, failure, or timeout — and Symphony passes it
+  no signal about what happened (`src/workspace/manager.ts: runAfterRun` takes no outcome
+  parameter). The *only* way `scripts/symphony_stage_hook.py` can know what the agent concluded is
+  by reading a file the agent itself wrote as its last action. Each stage's prompt instructs the
+  agent to write `{"status": "done" | "blocked", "summary": "...", ...}` (QA additionally writes
+  `"result": "pass" | "fail"`; PM additionally writes `"subtasks": [...]`) — see each
+  `WORKFLOW.md`'s prompt body for the exact per-stage shape. The hook consumes (deletes) the file
+  after reading it, so a later poll of the same workspace never reprocesses a stale decision.
+- `.symphony/pipeline_state.json` — machine-owned, not agent-owned: the QA bounce counter (above)
+  and, once Dev opens one, the PR's `number`/`url`/`branch` — QA's hook reads the PR number from
+  here rather than re-deriving it.
+- Design's comment and Dev's own repo checkout are enough context for Dev and QA respectively
+  beyond the two files above; no further handoff file is needed unless a stage's prompt turns out
+  to need more structure than a comment provides — deferred until a concrete need shows up.
 
 ## Git / PR mechanics (Dev and QA)
 
@@ -163,7 +176,7 @@ narrower-scoped work); a stronger model for Architect and Dev (design judgment, 
 Adding a `codex.model` (or `agent_runner.model`) pass-through field is a small, isolated change —
 proposed for whenever this pipeline actually gets implemented, not blocking the design.
 
-## File layout (proposed)
+## File layout
 
 ```
 pipelines/dev-workflow/
@@ -171,11 +184,13 @@ pipelines/dev-workflow/
   architect/WORKFLOW.md
   dev/WORKFLOW.md
   qa/WORKFLOW.md
-  scripts/symphony_stage_hook.py   # shared hook: state transition + bounce-counter logic,
-                                    # imported/invoked identically by all four WORKFLOW.md's
-                                    # hooks.after_run, parameterized by target state name
-  run-all.sh                       # backgrounds all four `pnpm run dev -- .../WORKFLOW.md`
-docs/dev-workflow-pipeline.md      # this file
+  scripts/symphony_stage_hook.py       # shared hook: decision-file handling, state transitions,
+                                        # sub-issue/PR/review calls -- invoked identically by all
+                                        # four WORKFLOW.md's hooks.after_run, parameterized by
+                                        # SYMPHONY_STAGE/SYMPHONY_NEXT_STATE/... env vars
+  scripts/test_symphony_stage_hook.py  # control-flow tests (11 cases), network calls mocked
+  run-all.sh                           # backgrounds all four `pnpm run dev -- .../WORKFLOW.md`
+docs/dev-workflow-pipeline.md          # this file
 ```
 
 ## Running four concurrent processes
@@ -186,18 +201,27 @@ invocations and traps `SIGINT` to stop all four together. `docker-compose`/`pm2`
 reasonable production alternatives if/when this moves past local testing, but not needed to
 validate the design.
 
-## Open items before implementation
+## What's actually verified vs. still open
 
-1. ~~Whether `Design` gets its own PR~~ — resolved: no, single PR at `Development`, see above.
-2. `Design` now needs a target-repo checkout to read `docs/adr/` for numbering, not just a bare
-   workspace — confirm `hooks.after_create` (or `before_run`) on `architect/WORKFLOW.md` should
-   clone/checkout the same way `dev/WORKFLOW.md` does, rather than Architect writing files with no
-   repo context.
-3. Exact GitHub API calls in `scripts/symphony_stage_hook.py` (branch creation, PR open, PR
-   review/merge, request-changes) need the same live-schema verification discipline already
-   applied to every Linear GraphQL call in this repo (`docs/adapters/linear.md` "Real integration
-   profile") before being trusted — propose-then-verify, not written from memory.
-4. `codex.model` plumbing in `ClaudeCodeAgentRunner` (needed for per-stage model selection above)
-   is new runner code, not just pipeline config — small but real implementation work.
-5. Bounce cap default (proposed: 3) and whether `Backlog`/`Design` retries need their own cap —
-   confirm before hardcoding either.
+- ~~Whether `Design` gets its own PR~~ — resolved: no, single PR at `Development`.
+- ~~`Design` needs a target-repo checkout~~ — resolved: `architect/WORKFLOW.md`'s
+  `hooks.after_create` has the same (commented-out, fill-in-your-repo) `git clone` placeholder
+  `dev/WORKFLOW.md` and the other examples use.
+- **Linear GraphQL shapes** (`issueUpdate`/`IssueUpdateInput.stateId`, `workflowStates`/
+  `WorkflowStateFilter`, `issueCreate`/`IssueCreateInput`, plus the already-shipped
+  `issue`/`commentCreate`/`issueRemoveLabel`) — verified against Linear's live schema via
+  unauthenticated introspection before being written into `symphony_stage_hook.py`, same
+  discipline as `docs/adapters/linear.md`.
+- **GitHub REST shapes** (`POST .../pulls`, `POST .../pulls/{n}/reviews`,
+  `PUT .../pulls/{n}/merge`) — **not** independently live-verified; this sandbox's network access
+  doesn't reach a real GitHub repo's API. They follow GitHub's long-stable documented REST shapes,
+  but smoke-test against a real token/repo before trusting them, same posture as any other
+  unverified integration in this repo.
+- **Hook control flow** (which decision shape triggers which Linear/GitHub call) — covered by
+  `pipelines/dev-workflow/scripts/test_symphony_stage_hook.py`, 11 cases, network mocked at the
+  wrapper level. Not covered: an actual end-to-end run.
+- `codex.model` plumbing in `ClaudeCodeAgentRunner` (would enable per-stage model selection, see
+  above) is new runner code, not shipped — every stage currently runs the CLI's default model.
+- Bounce cap default (3) and whether `Backlog`/`Design` retries need their own cap are still just
+  the proposed defaults baked into `qa/WORKFLOW.md` — revisit after a real run shows whether 3 is
+  actually the right number.
