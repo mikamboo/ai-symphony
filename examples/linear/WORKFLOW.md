@@ -3,7 +3,7 @@ tracker:
   kind: linear
   provider:
     api_key: $LINEAR_API_KEY
-    team_key: ENG
+    team_key: SMA
   required_labels: [symphony]
   active_states: [Todo, "In Progress"]
   terminal_states: [Done, Canceled, Duplicate]
