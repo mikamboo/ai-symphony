@@ -11,7 +11,9 @@ tracker, creates a per-issue workspace, and runs a coding-agent session per issu
 implementation: **Core Conformance only** (SPEC.md §18.1) — not the OPTIONAL HTTP server,
 provider-native tracker tools, session persistence across restarts, or Appendix A.
 
-Full status table, directory map, dev/security notes: `README.md`.
+Full status table, directory map, dev/security notes: `README.md`. Detailed §18 conformance
+checklist, plans for unfinished items, and the deferred-decisions log: `docs/ROADMAP.md` — check
+it before proposing new work, so you don't re-propose something already deferred for a reason.
 
 ## Decisions already made (don't re-litigate without asking)
 
@@ -48,13 +50,8 @@ needs a special case.
 
 ## Known gaps
 
-- SPEC.md §8.4's slot-exhaustion retry-requeue path (`onRetryTimer` in
-  `src/orchestrator/orchestrator.ts`) has no dedicated integration test — needs fake timers or a
-  test-only tick hook. The slot math it depends on (`availableStateSlots`, `noAvailableSlots`) is
-  unit tested.
-- Not implemented at all (SPEC.md §18.2/13.7/Appendix A, out of scope for this pass): HTTP status
-  server, provider-native tracker write tools, retry-queue/session persistence across restarts,
-  SSH worker extension.
+Full list with plans and status: `docs/ROADMAP.md` §2 and §4. Don't duplicate it here — update
+that file instead so there's one place this can go stale.
 
 ## Reading SPEC.md efficiently
 

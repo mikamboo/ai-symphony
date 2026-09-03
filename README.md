@@ -30,6 +30,9 @@ Appendix A SSH worker extension are out of scope for this pass.
 | CLI                                                | Implemented (`src/cli.ts`)                                        |
 | HTTP status server, provider-native tracker tools, session persistence across restarts | Not implemented (SPEC.md 18.2 RECOMMENDED extensions) |
 
+Detailed conformance checklist (every SPEC.md §18.1 item individually), plans for each unfinished
+piece, and a log of decisions deferred for later: [`docs/ROADMAP.md`](./docs/ROADMAP.md).
+
 ## Quick start
 
 ```bash
