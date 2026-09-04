@@ -4,5 +4,3 @@ dist/
 .env
 symphony_workspaces/
 coverage/
-__pycache__/
-*.pyc
