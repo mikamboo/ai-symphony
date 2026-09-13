@@ -35,6 +35,7 @@ hooks:
     git checkout "symphony/$(basename "$PWD" | tr '[:upper:]' '[:lower:]')" 2>/dev/null || true
 
   after_run: |
+    : "${SYMPHONY_PIPELINE_ROOT:?SYMPHONY_PIPELINE_ROOT not set -- export it to the absolute path of pipelines/dev-workflow (run-all.sh does this for you; set it yourself if starting this stage directly)}"
     export SYMPHONY_STAGE=qa
     export SYMPHONY_NEXT_STATE=Done
     export SYMPHONY_FAIL_STATE=Development

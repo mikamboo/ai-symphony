@@ -28,6 +28,7 @@ hooks:
     # git clone --depth 1 git@github.com:your-org/your-repo.git .
 
   after_run: |
+    : "${SYMPHONY_PIPELINE_ROOT:?SYMPHONY_PIPELINE_ROOT not set -- export it to the absolute path of pipelines/dev-workflow (run-all.sh does this for you; set it yourself if starting this stage directly)}"
     export SYMPHONY_STAGE=pm
     export SYMPHONY_NEXT_STATE=Design
     python3 "$SYMPHONY_PIPELINE_ROOT/scripts/symphony_stage_hook.py"
