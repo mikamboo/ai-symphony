@@ -67,6 +67,12 @@ prerequisites, and expected output.
 
 Stop the service with `Ctrl-C` (`SIGINT`) or `SIGTERM`; it drains in-flight workers and exits 0.
 
+For a multi-process pipeline built on top of Symphony rather than a single-file example — four
+Symphony daemons (PM/Architect/Dev/QA) relaying a ticket through custom Linear states with no
+human gate, review happening on the eventual PR — see
+[`docs/dev-workflow-pipeline.md`](./docs/dev-workflow-pipeline.md) and
+[`pipelines/dev-workflow/`](./pipelines/dev-workflow/).
+
 ## Architecture
 
 ```
