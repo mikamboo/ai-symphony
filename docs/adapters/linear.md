@@ -18,7 +18,7 @@ tracker:
 | `api_key`    | string  | yes (secret) | -                              | Linear personal API key or OAuth access token. Supports `$VAR_NAME` indirection (SPEC.md 5.3.1/6.1). Falls back to the `LINEAR_API_KEY` environment variable when omitted. An empty resolved value is treated as missing. |
 | `team_id`    | string  | no       | none (all teams visible to the key) | Linear team UUID to scope issues to.                                   |
 | `team_key`   | string  | no       | none                              | Linear team key (e.g. `ENG`); used only if `team_id` is not set.        |
-| `project_id` | string  | no       | none                              | Linear project UUID to further scope issues.                           |
+| `project_id` | string  | no       | none                              | Linear project UUID, **or** the trailing slug segment copied from a project's URL (`linear.app/<workspace>/project/<name>-<slugId>` -- the part after the last hyphen). Matched against `Project.id` when the value looks like a UUID, `Project.slugId` otherwise -- the UUID itself isn't shown anywhere in the Linear web app. |
 | `page_size`  | integer | no       | `100`                             | GraphQL page size for `fetch_issues_by_states` pagination.             |
 | `endpoint`   | string  | no       | `https://api.linear.app/graphql`  | Override for testing against a mock GraphQL server.                    |
 

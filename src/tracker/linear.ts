@@ -17,7 +17,11 @@ import type { TrackerAdapter } from "./adapter.js";
  *   SHOULD be set; omitting both queries across every team visible to the API key.
  * - `team_key` (string, optional): Linear team key (e.g. `"ENG"`), resolved to a team ID at
  *   adapter construction time via a lazy lookup.
- * - `project_id` (string, optional): Linear project UUID to further scope issues.
+ * - `project_id` (string, optional): Linear project UUID **or** the trailing slug segment from a
+ *   Linear project URL (`linear.app/<workspace>/project/<name>-<slugId>` -- `slugId` is the part
+ *   after the last hyphen) to further scope issues. The UUID isn't visible anywhere in the web
+ *   app; matched against `Project.slugId` when the value doesn't look like a UUID, against
+ *   `Project.id` when it does.
  * - `page_size` (integer, default 100): GraphQL page size for pagination.
  * - `endpoint` (string, default `"https://api.linear.app/graphql"`): override for testing.
  *
@@ -34,6 +38,7 @@ import type { TrackerAdapter } from "./adapter.js";
 
 const DEFAULT_ENDPOINT = "https://api.linear.app/graphql";
 const MAX_PAGES = 50;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 interface LinearProviderConfig {
   apiKey: string;
@@ -237,7 +242,11 @@ export class LinearTrackerAdapter implements TrackerAdapter {
     const filter: Record<string, unknown> = {};
     if (this.providerConfig.teamId) filter.team = { id: { eq: this.providerConfig.teamId } };
     else if (this.providerConfig.teamKey) filter.team = { key: { eq: this.providerConfig.teamKey } };
-    if (this.providerConfig.projectId) filter.project = { id: { eq: this.providerConfig.projectId } };
+    if (this.providerConfig.projectId) {
+      filter.project = UUID_RE.test(this.providerConfig.projectId)
+        ? { id: { eq: this.providerConfig.projectId } }
+        : { slugId: { eq: this.providerConfig.projectId } };
+    }
     return filter;
   }
 
