@@ -36,8 +36,10 @@ behavior: `docs/workflow-config.md` — read that instead of re-deriving field s
   (see `docs/adapters/linear.md`'s "Real integration profile" for why that matters: a
   never-checked-against-the-real-API GraphQL argument shipped once already and broke every Linear
   request).
-- **Tracker adapter shipped**: Linear only (`src/tracker/linear.ts`, read-only), plus an in-memory
-  mock for tests.
+- **Tracker adapters shipped**: Linear (`src/tracker/linear.ts`) and GitHub Projects v2
+  (`src/tracker/github.ts`, `tracker.kind: github`), both read-only, plus an in-memory mock for
+  tests. GitHub's dispatch `id` is the Project *item* ID and its state is the Status field value,
+  not open/closed. See `docs/adapters/github.md` before changing either.
 - **Trust posture**: high-trust environment assumed for every shipped runner. No operator-approval
   channel exists anywhere; `SubprocessAgentRunner` fails `turn.input_required` outright,
   `ClaudeCodeAgentRunner` runs with `--permission-mode acceptEdits` (auto-approves file edits and

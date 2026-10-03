@@ -21,6 +21,7 @@ Appendix A SSH worker extension are out of scope for this pass.
 | Orchestrator (poll/dispatch/reconcile/retry)      | Implemented (`src/orchestrator/`)                                 |
 | Tracker adapter contract                          | Implemented (`src/tracker/adapter.ts`)                            |
 | Linear tracker adapter                            | Implemented, read-only (`src/tracker/linear.ts`, profile in [`docs/adapters/linear.md`](./docs/adapters/linear.md)) |
+| GitHub Projects (v2) tracker adapter             | Implemented, read-only, schema-validated but not yet run live (`src/tracker/github.ts`, profile in [`docs/adapters/github.md`](./docs/adapters/github.md)) |
 | Mock tracker adapter (tests / local smoke runs)   | Implemented (`src/tracker/mock.ts`)                               |
 | Agent Runner interface                            | Implemented, decoupled from any one coding agent's wire protocol (`src/agent/runner.ts`) |
 | Reference `SubprocessAgentRunner`                 | Implemented against Symphony's own protocol, not the Codex app-server protocol — see [`docs/agent-runner-protocol.md`](./docs/agent-runner-protocol.md) |
@@ -81,7 +82,7 @@ src/
   workflow/       WORKFLOW.md loader (YAML front matter + prompt body) and file watcher — SPEC.md §5, §6.2
   config/         Typed config resolution, $VAR/~ expansion, dispatch preflight validation — SPEC.md §6
   workspace/      Per-issue workspace manager, lifecycle hooks, path-safety invariants — SPEC.md §9, §15.2
-  tracker/        TrackerAdapter contract + Linear adapter + in-memory mock adapter — SPEC.md §11
+  tracker/        TrackerAdapter contract + Linear and GitHub Projects adapters + in-memory mock adapter — SPEC.md §11
   prompt/         Strict Liquid-based prompt rendering + continuation guidance — SPEC.md §12
   agent/          AgentRunner contract + subprocess reference implementation + mock — SPEC.md §10
   orchestrator/   Poll loop, dispatch, reconciliation, retry/backoff (the state machine) — SPEC.md §7, §8, §16

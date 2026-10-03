@@ -19,7 +19,7 @@ snapshot.
 | 3 | Typed config layer, defaults + `$VAR` resolution | Done | `src/config/resolve.ts` |
 | 4 | Dynamic `WORKFLOW.md` watch/reload/re-apply | Done | `src/workflow/watcher.ts`, `Orchestrator.handleWorkflowChange` |
 | 5 | Polling orchestrator, single-authority mutable state | Done | `src/orchestrator/orchestrator.ts` |
-| 6 | Tracker adapter: state-list + ID-refresh reads | Done | `src/tracker/linear.ts`, `src/tracker/mock.ts` |
+| 6 | Tracker adapter: state-list + ID-refresh reads | Done | `src/tracker/linear.ts`, `src/tracker/github.ts`, `src/tracker/mock.ts` |
 | 7 | Workspace manager: sanitized, collision-resistant paths | Done | `src/workspace/key.ts`, `manager.ts` |
 | 8 | Workspace lifecycle hooks (4 hooks) | Done | `src/workspace/hooks.ts` |
 | 9 | Hook timeout config | Done | `hooks.timeout_ms`, default 60000 |
@@ -44,7 +44,7 @@ default value) — a scope decision made at the start of this build (see §3), n
 | Provider-native agent tools | Not started | Needs a decision first: which adapter gets tools, and what they mutate (comments? state transitions?). Linear adapter would grow `agentToolSpecs()`/`executeAgentTool()` per the SPEC.md 10.5 hooks; `AgentRunner` implementations would need to advertise/dispatch them, which neither shipped runner does today. Medium-large: touches the adapter, both runners' protocols, and the orchestrator's session-snapshot binding rule (10.5: tool specs must bind to one session snapshot). |
 | Retry-queue / session persistence across restarts | Not started | Requires picking a storage format (SPEC.md explicitly avoids mandating a DB) and deciding what "resume in-flight work after a crash" means for `ClaudeCodeAgentRunner`'s per-turn processes vs. `SubprocessAgentRunner`'s one long-lived one — the two runners would need different resume semantics. Not trivial; needs its own design pass. |
 | Observability settings in front matter | Not started | Small: add a `logging` (or similar) front-matter section, thread it through `buildServiceConfig`. Low priority — no concrete need identified yet. |
-| Extract common semantic tracker tools | N/A | SPEC.md says only do this "after multiple adapters demonstrate real duplication" — we ship exactly one real adapter (Linear). Revisit if a second tracker adapter is ever added. |
+| Extract common semantic tracker tools | N/A | SPEC.md says only do this "after multiple adapters demonstrate real duplication" — with Linear and GitHub Projects both shipped read-only and neither exposing agent tools, there is still nothing to extract. Revisit once either grows provider-native tools. |
 
 ## 3. Known divergence: no real Codex app-server client
 
@@ -99,6 +99,13 @@ considered?" from scratch.
   in-flight work on a Symphony restart, or does this need solving? Affects how urgent this is.
 
 ## 6. Decision history (dated, most recent first)
+
+- **2026-10-03** — Added a read-only GitHub Projects (v2) tracker adapter (`tracker.kind:
+  github`, `src/tracker/github.ts`, `docs/adapters/github.md`). Scope is one org- or user-owned
+  Project by number. State comes from a single-select Status field. Dispatch `id` is the Project
+  item ID. `blockedBy` comes from native issue dependencies. Auth is a PAT (`GITHUB_TOKEN`).
+  Queries were validated against GitHub's public schema but have not been run against a live
+  board yet. GitHub App auth and classic Projects are out of scope.
 
 - **2026-09-03** — Built the PM/Architect/Dev/QA multi-agent SDLC pipeline
   (`pipelines/dev-workflow/`, `docs/dev-workflow-pipeline.md`): four Symphony daemons relaying a

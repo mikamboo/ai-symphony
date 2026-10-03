@@ -9,6 +9,7 @@ export { deriveWorkspaceKey } from "./workspace/key.js";
 export type { TrackerAdapter, TrackerAdapterFactory } from "./tracker/adapter.js";
 export { issueRoutable } from "./tracker/adapter.js";
 export { LinearTrackerAdapter } from "./tracker/linear.js";
+export { GitHubTrackerAdapter } from "./tracker/github.js";
 export { MockTrackerAdapter } from "./tracker/mock.js";
 export { buildTrackerAdapter, registerTrackerAdapter } from "./tracker/registry.js";
 export type { AgentRunner, AgentSession, AgentRuntimeEvent } from "./agent/runner.js";

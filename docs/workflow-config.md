@@ -58,8 +58,8 @@ top-level keys are ignored (forward-compatible) — this is how the CLI-only `ag
 
 | Key | Type | Default | Notes |
 | --- | ---- | ------- | ----- |
-| `kind` | string | `""` (invalid) | **Required for dispatch.** Selects the adapter — currently `linear` or `mock` (`src/tracker/registry.ts`). Empty/missing fails preflight validation, not config parsing (so a `WORKFLOW.md` with no tracker at all still loads, it just can't dispatch). |
-| `provider` | object | `{}` | Adapter-owned. For `linear`, see [`docs/adapters/linear.md`](./adapters/linear.md) (`api_key`, `team_key`/`team_id`, `project_id`, `page_size`, `endpoint`). |
+| `kind` | string | `""` (invalid) | **Required for dispatch.** Selects the adapter — currently `linear`, `github`, or `mock` (`src/tracker/registry.ts`). Empty/missing fails preflight validation, not config parsing (so a `WORKFLOW.md` with no tracker at all still loads, it just can't dispatch). |
+| `provider` | object | `{}` | Adapter-owned. For `linear`, see [`docs/adapters/linear.md`](./adapters/linear.md) (`api_key`, `team_key`/`team_id`, `project_id`, `page_size`, `endpoint`). For `github` (GitHub Projects v2), see [`docs/adapters/github.md`](./adapters/github.md) (`token`, `owner`, `project_number`, `status_field`, `page_size`, `endpoint`); states are the Project's Status option names. |
 | `required_labels` | string[] | `[]` | Every listed label must be present (case-insensitive, trimmed) for an issue to be dispatch-eligible. |
 | `active_states` | string[] | `[]` | Provider-native state names that make an issue a dispatch candidate. Compared case-insensitively. |
 | `terminal_states` | string[] | `[]` | Provider-native state names that trigger workspace cleanup and stop any running worker. |
