@@ -1,8 +1,8 @@
 import { err, ok, TrackerError, type Result } from "../domain/errors.js";
 import type { BlockerRef, Issue, ServiceConfig } from "../domain/types.js";
 import type { Logger } from "../logging/logger.js";
-import { resolveVarIndirection } from "../config/resolve.js";
 import type { TrackerAdapter } from "./adapter.js";
+import { postGraphql, resolveSecret } from "./graphql.js";
 
 /**
  * Linear tracker adapter profile (SPEC.md 11.2 compact profile; see also docs/adapters/linear.md).
@@ -47,14 +47,6 @@ interface LinearProviderConfig {
   projectId: string | null;
   pageSize: number;
   endpoint: string;
-}
-
-function resolveSecret(raw: unknown, envFallback: string): string | undefined {
-  if (typeof raw === "string" && raw.trim().length > 0) {
-    return resolveVarIndirection(raw);
-  }
-  const fromEnv = process.env[envFallback];
-  return fromEnv && fromEnv.length > 0 ? fromEnv : undefined;
 }
 
 function parseProviderConfig(provider: Record<string, unknown>): Result<LinearProviderConfig, TrackerError> {
@@ -192,50 +184,14 @@ export class LinearTrackerAdapter implements TrackerAdapter {
     return ["LINEAR_API_KEY"];
   }
 
-  private async graphql<T>(query: string, variables: Record<string, unknown>): Promise<Result<T, TrackerError>> {
-    let response: Response;
-    try {
-      response = await fetch(this.providerConfig.endpoint, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: this.providerConfig.apiKey
-        },
-        body: JSON.stringify({ query, variables })
-      });
-    } catch (cause) {
-      return err(new TrackerError("tracker_request", `Linear request failed: ${String(cause)}`, { cause, retryable: true }));
-    }
-
-    if (response.status === 429) {
-      const retryAfter = Number(response.headers.get("retry-after"));
-      return err(
-        new TrackerError("tracker_rate_limited", "Linear API rate limit exceeded", {
-          retryable: true,
-          retryAfterMs: Number.isFinite(retryAfter) ? retryAfter * 1000 : undefined
-        })
-      );
-    }
-
-    if (!response.ok) {
-      return err(new TrackerError("tracker_status", `Linear API returned HTTP ${response.status}`, { retryable: response.status >= 500 }));
-    }
-
-    let body: { data?: T; errors?: { message: string }[] };
-    try {
-      body = (await response.json()) as { data?: T; errors?: { message: string }[] };
-    } catch (cause) {
-      return err(new TrackerError("tracker_response", "Linear API returned invalid JSON", { cause }));
-    }
-
-    if (body.errors && body.errors.length > 0) {
-      return err(new TrackerError("tracker_response", `Linear API error: ${body.errors.map((e) => e.message).join("; ")}`));
-    }
-    if (body.data === undefined) {
-      return err(new TrackerError("tracker_response", "Linear API response missing 'data'"));
-    }
-
-    return ok(body.data);
+  private graphql<T>(query: string, variables: Record<string, unknown>): Promise<Result<T, TrackerError>> {
+    return postGraphql<T>({
+      provider: "Linear",
+      endpoint: this.providerConfig.endpoint,
+      headers: { Authorization: this.providerConfig.apiKey },
+      query,
+      variables
+    });
   }
 
   private buildFilter(): Record<string, unknown> {

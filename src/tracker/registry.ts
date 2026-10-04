@@ -2,11 +2,13 @@ import { err, TrackerError, type Result } from "../domain/errors.js";
 import type { ServiceConfig } from "../domain/types.js";
 import type { Logger } from "../logging/logger.js";
 import type { TrackerAdapter, TrackerAdapterFactory } from "./adapter.js";
+import { GitHubTrackerAdapter } from "./github.js";
 import { LinearTrackerAdapter } from "./linear.js";
 import { MockTrackerAdapter } from "./mock.js";
 
 const factories: Record<string, TrackerAdapterFactory> = {
   linear: (config, logger) => LinearTrackerAdapter.create(config, logger),
+  github: (config, logger) => GitHubTrackerAdapter.create(config, logger),
   mock: () => ({ ok: true, value: new MockTrackerAdapter() })
 };
 

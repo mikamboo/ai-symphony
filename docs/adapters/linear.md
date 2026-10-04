@@ -86,10 +86,12 @@ through whatever tools it is separately given, outside Symphony's core scheduler
 
 ## Error mapping
 
+Transport and error mapping are shared with the GitHub adapter (`src/tracker/graphql.ts`).
+
 | Condition                                   | Category              | `retryable` |
 | -------------------------------------------- | ---------------------- | ------------ |
 | Network/transport failure                    | `tracker_request`      | `true`       |
-| HTTP 429                                     | `tracker_rate_limited` | `true` (honors `Retry-After` when present) |
+| HTTP 429, or HTTP 403 with `Retry-After`     | `tracker_rate_limited` | `true` (honors `Retry-After` when present) |
 | HTTP non-2xx (other)                         | `tracker_status`       | `true` if `>= 500`, else `false` |
 | Invalid JSON body                            | `tracker_response`     | `false`      |
 | GraphQL `errors` array present               | `tracker_response`     | `false`      |
