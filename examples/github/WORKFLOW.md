@@ -5,7 +5,8 @@ tracker:
     token: $GITHUB_TOKEN
     owner: your-org
     project_number: 1
-    # status_field: Status
+    # status_field: Status   # must be a single-select Project field
+    # server_filter: true     # false = list every item and match Status locally
   required_labels: [symphony]
   active_states: [Todo, "In Progress"]
   terminal_states: [Done]

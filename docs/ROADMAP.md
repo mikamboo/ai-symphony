@@ -105,7 +105,12 @@ considered?" from scratch.
   Project by number. State comes from a single-select Status field. Dispatch `id` is the Project
   item ID. `blockedBy` comes from native issue dependencies. Auth is a PAT (`GITHUB_TOKEN`).
   Queries were validated against GitHub's public schema but have not been run against a live
-  board yet. GitHub App auth and classic Projects are out of scope.
+  board yet. GitHub App auth and classic Projects are out of scope. Hardened after review:
+  server-side `items(query:)` filtering (`server_filter: false` escape hatch), closed issues are
+  never dispatched (and stop a running worker), archived items are omitted on refresh,
+  `status_field` is validated as single-select, secondary rate limits are retryable, and the
+  shared GraphQL transport moved to `src/tracker/graphql.ts`. `github.live.test.ts` (opt-in)
+  checks the server filter against local matching; it still needs a run against a real board.
 
 - **2026-09-03** — Built the PM/Architect/Dev/QA multi-agent SDLC pipeline
   (`pipelines/dev-workflow/`, `docs/dev-workflow-pipeline.md`): four Symphony daemons relaying a

@@ -1,6 +1,6 @@
 import { createServer, type Server } from "node:http";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { GitHubTrackerAdapter } from "./github.js";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { buildItemsFilter, GitHubTrackerAdapter } from "./github.js";
 import { buildServiceConfig } from "../config/resolve.js";
 import { createLogger } from "../logging/logger.js";
 
@@ -61,8 +61,13 @@ function issueItem(
   };
 }
 
-function page(nodes: unknown[], hasNextPage = false, endCursor: string | null = null) {
-  return { data: { repositoryOwner: { projectV2: { items: { nodes, pageInfo: { hasNextPage, endCursor } } } } } };
+const STATUS_FIELD = {
+  __typename: "ProjectV2SingleSelectField",
+  options: [{ name: "Todo" }, { name: "In Progress" }, { name: "Done" }]
+};
+
+function page(nodes: unknown[], hasNextPage = false, endCursor: string | null = null, field: unknown = STATUS_FIELD) {
+  return { data: { repositoryOwner: { projectV2: { field, items: { nodes, pageInfo: { hasNextPage, endCursor } } } } } };
 }
 
 function buildAdapter(endpoint: string, provider: Record<string, unknown> = {}) {
@@ -90,6 +95,15 @@ describe("GitHubTrackerAdapter config", () => {
     }
   });
 
+  it("rejects a non-boolean server_filter", () => {
+    const config = buildServiceConfig(
+      { tracker: { kind: "github", provider: { token: "t", owner: "acme", project_number: 1, server_filter: "no" } } },
+      "/tmp"
+    );
+    const result = GitHubTrackerAdapter.create(config, logger);
+    expect(!result.ok && result.error.category).toBe("invalid_tracker_config");
+  });
+
   it("requires a token when GITHUB_TOKEN is unset", () => {
     const saved = process.env.GITHUB_TOKEN;
     delete process.env.GITHUB_TOKEN;
@@ -101,6 +115,22 @@ describe("GitHubTrackerAdapter config", () => {
     } finally {
       if (saved !== undefined) process.env.GITHUB_TOKEN = saved;
     }
+  });
+});
+
+describe("buildItemsFilter", () => {
+  it("restricts to issues and ORs the states, quoting values that need it", () => {
+    expect(buildItemsFilter("Status", ["Todo", "In Progress"], true)).toBe('is:issue status:Todo,"In Progress"');
+  });
+
+  it("falls back to is:issue when the field name or a value can't be expressed safely", () => {
+    expect(buildItemsFilter("Dev Stage", ["Todo"], true)).toBe("is:issue");
+    expect(buildItemsFilter("Status", ['Say "hi"'], true)).toBe("is:issue");
+    expect(buildItemsFilter("Status", ["  "], true)).toBe("is:issue");
+  });
+
+  it("sends no filter at all when server_filter is off", () => {
+    expect(buildItemsFilter("Status", ["Todo"], false)).toBe("");
   });
 });
 
@@ -130,7 +160,7 @@ describe("GitHubTrackerAdapter requests", () => {
     const adapter = buildAdapter(endpoint, { status_field: "Stage" });
     await adapter.fetchIssuesByStates(["Todo"]);
     expect(requests[0]?.authorization).toBe("Bearer test-token");
-    expect(requests[0]?.variables).toMatchObject({ owner: "acme", number: 3, statusField: "Stage", first: 100 });
+    expect(requests[0]?.variables).toMatchObject({ owner: "acme", number: 3, statusField: "Stage", query: "is:issue stage:Todo", first: 100 });
   });
 
   it("filters by Status case-insensitively and normalizes issue items", async () => {
@@ -200,6 +230,14 @@ describe("GitHubTrackerAdapter requests", () => {
     result = await buildAdapter(endpoint).fetchIssuesByStates(["Todo"]);
     expect(!result.ok && result.error).toMatchObject({ category: "tracker_rate_limited", retryAfterMs: 5000 });
 
+    responder = () => ({ status: 403, headers: { "retry-after": "60" }, body: {} });
+    result = await buildAdapter(endpoint).fetchIssuesByStates(["Todo"]);
+    expect(!result.ok && result.error).toMatchObject({ category: "tracker_rate_limited", retryable: true, retryAfterMs: 60000 });
+
+    responder = () => ({ status: 403, body: {} });
+    result = await buildAdapter(endpoint).fetchIssuesByStates(["Todo"]);
+    expect(!result.ok && result.error).toMatchObject({ category: "tracker_status", retryable: false });
+
     responder = () => ({ status: 502, body: {} });
     result = await buildAdapter(endpoint).fetchIssuesByStates(["Todo"]);
     expect(!result.ok && result.error).toMatchObject({ category: "tracker_status", retryable: true });
@@ -235,6 +273,45 @@ describe("GitHubTrackerAdapter requests", () => {
   it("omits (rather than fails on) a requested item whose Status was cleared", async () => {
     responder = () => ({
       body: { data: { nodes: [{ ...issueItem("PVTI_1", null), project: { number: 3, owner: { login: "acme" } } }] } }
+    });
+    expect(await buildAdapter(endpoint).fetchIssuesByIds(["PVTI_1"])).toEqual({ ok: true, value: [] });
+  });
+
+  it("fails loudly when the status field is missing or not single-select", async () => {
+    responder = () => ({ body: page([issueItem("PVTI_1", "Todo")], false, null, null) });
+    let result = await buildAdapter(endpoint).fetchIssuesByStates(["Todo"]);
+    expect(!result.ok && result.error.category).toBe("invalid_tracker_config");
+
+    responder = () => ({ body: page([issueItem("PVTI_1", "Todo")], false, null, { __typename: "ProjectV2Field" }) });
+    result = await buildAdapter(endpoint).fetchIssuesByStates(["Todo"]);
+    expect(!result.ok && result.error.message).toMatch(/single-select/);
+  });
+
+  it("warns once per configured state the status field does not offer", async () => {
+    const adapter = buildAdapter(endpoint);
+    const warn = vi.spyOn(logger, "warn");
+    try {
+      await adapter.fetchIssuesByStates(["Todo", "In progress ", "Blocked"]);
+      await adapter.fetchIssuesByStates(["Blocked"]);
+      const unknown = warn.mock.calls.filter(([event]) => event === "tracker.unknown_state").map(([, fields]) => fields?.state);
+      expect(unknown).toEqual(["Blocked"]);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it("marks closed issues non-dispatchable", async () => {
+    responder = () => ({ body: page([issueItem("PVTI_1", "Todo", { state: "CLOSED" }), issueItem("PVTI_2", "Todo")]) });
+    const result = await buildAdapter(endpoint).fetchIssuesByStates(["Todo"]);
+    expect(result.ok && result.value.map((i) => [i.id, i.dispatchable])).toEqual([
+      ["PVTI_1", false],
+      ["PVTI_2", true]
+    ]);
+  });
+
+  it("omits archived items from id refreshes", async () => {
+    responder = () => ({
+      body: { data: { nodes: [{ ...issueItem("PVTI_1", "Todo"), isArchived: true, project: { number: 3, owner: { login: "acme" } } }] } }
     });
     expect(await buildAdapter(endpoint).fetchIssuesByIds(["PVTI_1"])).toEqual({ ok: true, value: [] });
   });
